@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-
+#the dataset can be downloaded at https://github.com/jbrownlee/Datasets/releases/download/Flickr8k/Flickr8k_Dataset.zip and https://github.com/jbrownlee/Datasets/releases/download/Flickr8k/Flickr8k_text.zip
+#then the datasets need to be named according to the programme
 import string
 import numpy as np
 from PIL import Image
