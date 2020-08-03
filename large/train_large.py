@@ -1,27 +1,27 @@
-##the dataset can be found at  https://www.kaggle.com/hsankesara/flickr-image-dataset
 
+##the dataset can be found at  https://www.kaggle.com/hsankesara/flickr-image-dataset
+##importing the keras module
+from keras.applications.xception import preprocess_input
+from keras.layers import Input, Dense, LSTM, Embedding, Dropout
+from keras.preprocessing.image import load_img, img_to_array
+from keras.utils import to_categorical
+from keras.models import Model, load_model
+from keras.applications.xception import Xception
+from keras.preprocessing.text import Tokenizer
+from keras.layers.merge import add
+from keras.preprocessing.sequence import pad_sequences
+from keras.utils import plot_model
+from tqdm import tqdm_notebook as tqdm
+tqdm().pandas()
+
+##other imports
 import string
-import numpy as np
 from PIL import Image
 import os
 from pickle import dump, load
 import numpy as np
 
-from keras.applications.xception import Xception, preprocess_input
-from keras.preprocessing.image import load_img, img_to_array
-from keras.preprocessing.text import Tokenizer
-from keras.preprocessing.sequence import pad_sequences
-from keras.utils import to_categorical
-from keras.layers.merge import add
-from keras.models import Model, load_model
-from keras.layers import Input, Dense, LSTM, Embedding, Dropout
-
-# small library for seeing the progress of loops.
-from tqdm import tqdm_notebook as tqdm
-
-tqdm().pandas()
-
-
+# Loading a text file into memory
 def load_doc(filename):
     # Opening the file as read only
     file = open(filename, 'r')
@@ -37,19 +37,11 @@ def cleaning_text(descriptions):
         for i in range(len(descriptions[imgs])):
             comments = descriptions[imgs][i]
             desc = comments.strip().split(" ")
-
-            # converts to lower case
-            desc = [word.lower() for word in desc]
-            # remove punctuation from each token
-            desc = [word.translate(table) for word in desc]
-            # remove hanging 's and a
-            desc = [word for word in desc if (len(word) > 1)]
-            # remove tokens with numbers in them
-            desc = [word for word in desc if (word.isalpha())]
-
-            desc = [word for word in desc if word != "..."]
-            # convert back to string
-
+            desc = [w.lower() for w in desc]
+            desc = [w.translate(table) for w in desc]
+            desc = [w for w in desc if (len(w) > 1)]
+            desc = [w for w in desc if (w.isalpha())]
+            desc = [w for w in desc if w != "..."]
             comments = ' '.join(desc)
             descriptions[imgs][i] = comments
 
@@ -130,7 +122,6 @@ for i in clean_descriptions:
     if k < 8:
         train_imgs.append(i)
 
-
 def load_clean_descriptions(filename, photos):
     # loading clean_descriptions
     file = load_doc(filename)
@@ -151,32 +142,27 @@ def load_clean_descriptions(filename, photos):
 
     return descriptions
 
-
 def load_features(photos):
     # loading all features
-    all_features = load(open("features.p", "rb"))
-    # selecting only needed features
-    features = {k: all_features[k] for k in photos}
-    return features
+    all_f = load(open("features.p", "rb"))
+    # selecting only teh required features
+    f = {k: all_f[k] for k in photos}
+    return f
 
-
-train_descriptions = load_clean_descriptions("descriptions.txt", train_imgs)
+train_desc = load_clean_descriptions("descriptions.txt", train_imgs)
 train_features = load_features(train_imgs)
 
-
-def dict_to_list(descriptions):
-    all_desc = []
-    for key in descriptions.keys():
-        [all_desc.append(d) for d in descriptions[key]]
-    return all_desc
-
+def dict_to_list(desc):
+    all_d = []
+    for key in desc.keys():
+        [all_d.append(d) for d in desc[key]]
+    return all_d
 
 # creating tokenizer class
 # this will vectorise text corpus
 # each integer will represent token in dictionary
 
 from keras.preprocessing.text import Tokenizer
-
 
 def create_tokenizer(descriptions):
     desc_list = dict_to_list(descriptions)
@@ -191,13 +177,12 @@ dump(tokenizer, open('tokenizer.p', 'wb'))
 vocab_size = len(tokenizer.word_index) + 1
 
 
-def max_length(descriptions):
-    desc_list = dict_to_list(descriptions)
-    return max(len(d.split()) for d in desc_list)
+def max_length(desc):
+    desc_l = dict_to_list(desc)
+    k= max(len(des.split()) for des in desc_l)#finding the max length
+    return k
 
-
-max_length = max_length(descriptions)
-
+max_l = max_length(descriptions)
 
 def data_generator(descriptions, features, tokenizer, max_length):
     while 1:
@@ -209,123 +194,62 @@ def data_generator(descriptions, features, tokenizer, max_length):
             yield [[input_image, input_sequence], output_word]
 
 
-def create_sequences(tokenizer, max_length, desc_list, feature):
-    X1, X2, y = list(), list(), list()
-    # walk through each description for the image
-    for desc in desc_list:
-        # encode the sequence
-        seq = tokenizer.texts_to_sequences([desc])[0]
-        # split one sequence into multiple X,y pairs
-        for i in range(1, len(seq)):
-            # split into input and output pair
-            in_seq, out_seq = seq[:i], seq[i]
-            # pad input sequence
-            in_seq = pad_sequences([in_seq], maxlen=max_length)[0]
-            # encode output sequence
-            out_seq = to_categorical([out_seq], num_classes=vocab_size)[0]
-            # store
-            X1.append(feature)
-            X2.append(in_seq)
-            y.append(out_seq)
-    return np.array(X1), np.array(X2), np.array(y)
+def create_sequences(tokenizer, max_l, desc_l, f):
+    x1, x2, y = list(), list(), list()
+    for desc in desc_l:
+        s = tokenizer.texts_to_sequences([desc])[0]
+        for i in range(1, len(s)):
+            out_s, in_s = s[i], s[:i]
+            in_s = pad_sequences([in_s], maxlen=max_l)[0]
+            out_s = to_categorical([out_s], num_classes=vocab_size)[0]
+            x1.append(f)
+            x2.append(in_s)
+            y.append(out_s)
+    return np.array(x1), np.array(x2), np.array(y)
 
 
-[a, b], c = next(data_generator(train_descriptions, features, tokenizer, max_length))
-a.shape, b.shape, c.shape
+[a, b], c = next(data_generator(train_desc, features, tokenizer, max_length))
 
 
-def define_model(vocab_size, max_length):
-    # features from the CNN model squeezed from 2048 to 256 nodes
-    inputs1 = Input(shape=(2048,))
-    fe1 = Dropout(0.5)(inputs1)
-    fe2 = Dense(256, activation='relu')(fe1)
-
-    # LSTM sequence model
-    inputs2 = Input(shape=(max_length,))
-    se1 = Embedding(vocab_size, 256, mask_zero=True)(inputs2)
-    se2 = Dropout(0.5)(se1)
-    se3 = LSTM(256)(se2)
-
-    # Merging both models
-    decoder1 = add([fe2, se3])
+# THE CAPTION MODEL
+def define_model(vocab_size, max_l):
+    #taking the image as 2048 length array
+    input_1 = Input(shape=(2048,))
+    # dropout for reducing overfitting
+    feature_1 = Dropout(0.5)(input_1)
+    fe2 = Dense(256, activation='relu')(feature_1)
+    # 2nd layer for the model
+    input_2 = Input(shape=(max_l,))
+    sec_l_1 = Embedding(vocab_size, 256, mask_zero=True)(input_2)
+    #dropout for reducing overfitting
+    sec_l_2 = Dropout(0.5)(sec_l_1)
+    #using in-built LSTM to make se3
+    sec_l_3 = LSTM(256)(sec_l_2)
+    decoder1 = add([fe2, sec_l_3])
     decoder2 = Dense(256, activation='relu')(decoder1)
     outputs = Dense(vocab_size, activation='softmax')(decoder2)
-
-    # tie it together [image, seq] [word]
-    model = Model(inputs=[inputs1, inputs2], outputs=outputs)
+    model = Model(inputs=[input_1, input_2], outputs=outputs)
     model.compile(loss='categorical_crossentropy', optimizer='adam')
 
-    # summarize model
     print(model.summary())
 
     return model
 
 
+
 print('Dataset: ', len(train_imgs))
-print('Descriptions: train=', len(train_descriptions))
+print('Descriptions: train=', len(train_desc))
 print('Photos: train=', len(train_features))
 print('Vocabulary Size:', vocab_size)
-print('Description Length: ', max_length)
+print('Description Length: ', max_l)
 
-model = define_model(vocab_size, max_length)
+model = define_model(vocab_size, max_l)
 epochs = 10
-steps = len(train_descriptions)
+steps = len(train_desc)
 # making a directory models to save our models
 os.mkdir("models")
 for i in range(25):
-    generator = data_generator(train_descriptions, train_features, tokenizer, max_length)
-    model.fit_generator(generator, epochs=1, steps_per_epoch=steps, verbose=1)
+    gen = data_generator(train_desc, train_features, tokenizer, max_l)
+    model.fit_generator(gen, epochs=1, steps_per_epoch=steps, verbose=1)
     model.save("models/model_" + str(i) + ".h5")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
