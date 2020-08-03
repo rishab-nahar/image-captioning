@@ -8,27 +8,26 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 
-def extract_features(filename, model):
+def extract_features(fname, model):
     try:
-        image = Image.open(filename)
+        img = Image.open(fname)
 
     except:
         print("ERROR: Couldn't open image")
-    image = image.resize((299, 299))
-    image = np.array(image)
-    # for images that has 4 channels, we convert them into 3 channels
-    if image.shape[2] == 4:
-        image = image[..., :3]
-    image = np.expand_dims(image, axis=0)
-    image = image / 127.5
-    image = image - 1.0
-    feature = model.predict(image)
+    img = img.resize((299, 299))
+    img = np.array(img)
+    if img.shape[2] == 4:
+        img = img[..., :3]
+    img = np.expand_dims(img, axis=0)
+    img = img / 127.5
+    img = img - 1.0
+    feature = model.predict(img)
     return feature
 
 
-def word_for_id(integer, tokenizer):
-    for word, index in tokenizer.word_index.items():
-        if index == integer:
+def word_for_id(n, tokenizer):
+    for word, ind in tokenizer.word_index.items():
+        if ind == n:
             return word
     return None
 
@@ -53,11 +52,6 @@ max_length = 32
 tokenizer = load(open("tokenizer.p", "rb"))
 model = load_model('models/model_24.h5')
 xception_model = Xception(include_top=False, pooling="avg")
-
-
-
-
-
 
 
 import re
